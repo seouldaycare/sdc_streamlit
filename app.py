@@ -1,15 +1,13 @@
 import streamlit as st
 import pandas as pd
 from prophet import Prophet
-import matplotlib.pyplot as plt
-import matplotlib.font_manager as fm
-from matplotlib import rc
+import plotly.graph_objects as go
 from streamlit_option_menu import option_menu
 import chardet
 # from sklearn.metrics import mean_absolute_error, mean_squared_error
 import numpy as np
 
-# 페이지 설정
+# 페이지 레이아웃 넓게 설정
 st.set_page_config(layout="wide")
 
 # css 파일 읽어오기
@@ -19,18 +17,6 @@ def local_css(file_name):
 
 # css 적용하기
 local_css("style.css")
-
-# 한글폰트 적용하기
-font_path = 'font/NotoSansKR-VariableFont_wght.ttf'
-font_properties = fm.FontProperties(fname=font_path)
-fm.fontManager.addfont(font_path)
-plt.rcParams['font.family'] = font_properties.get_name()
-# fontprop = fm.FontProperties(fname=font_path, size=12)
-# plt.rcParams['font.family'] = fontprop.get_name()
-plt.rcParams['axes.titlesize'] = 17  # 그래프 제목 크기
-plt.rcParams['axes.labelsize'] = 13  # 축 제목 크기
-plt.rcParams['xtick.labelsize'] = 11  # x축 눈금 크기
-plt.rcParams['ytick.labelsize'] = 11  # y축 눈금 크기
 
 # 파일 인코딩 감지 함수
 def detect_encoding(file):
@@ -83,8 +69,9 @@ if uploaded_file is not None:
         # 시계열 예측을 위한 데이터 준비
         patient_data['측정날짜'] = pd.to_datetime(patient_data['측정날짜'])
         patient_data = patient_data.sort_values('측정날짜')
-
-        metrics = ["수축기혈압", "이완기혈압", "맥박", "체온", "호흡"]
+        
+        # 시각화할 컬럼들은 여기서 추가 또는 삭제
+        metrics = ["수축기혈압", "이완기혈압", "맥박", "체온", "혈당", "호흡", "체중"]
         
         # 이상치 기준선 설정
         thresholds = {
@@ -94,6 +81,14 @@ if uploaded_file is not None:
             "체온": {"upper": 37, "lower": 36},
         }
 
+        # Plotly layout으로 한글폰트와 글씨 크기 설정
+        font_family = "Noto Sans KR"  # 한글 폰트를 사용
+        layout = go.Layout(
+            font=dict(family=font_family, size=14),
+            title_font=dict(size=17),
+            xaxis=dict(title_font=dict(size=13), tickfont=dict(size=11)),
+            yaxis=dict(title_font=dict(size=13), tickfont=dict(size=11)),
+        )
 
         for metric in metrics:
             st.subheader(f"{metric} 예측")
@@ -121,30 +116,28 @@ if uploaded_file is not None:
                 forecast = model.predict(future)
 
                 # 예측 결과 시각화
-                fig, ax = plt.subplots(figsize=(16, 8)) # 가로폭 조정
-                ax.plot(data['ds'], data['y'], label='실제', color='blue')
-                ax.plot(forecast['ds'], forecast['yhat'], label='예측', color='orange')
+                fig = go.Figure()
+
+                fig.add_trace(go.Scatter(x=data['ds'], y=data['y'], mode='markers', name='실제', marker=dict(color='blue')))
+                fig.add_trace(go.Scatter(x=forecast['ds'], y=forecast['yhat'], mode='lines', name='예측', line=dict(color='orange')))
 
                 # 이상치 기준선이 존재하는 경우에만 기준선 및 이상치 표시
                 if metric in thresholds:
                     # 기준선 표시
-                    ax.axhline(y=thresholds[metric]["upper"], color='green', linestyle='--', label='상한선')
-                    ax.axhline(y=thresholds[metric]["lower"], color='green', linestyle='--', label='하한선')
+                    fig.add_hline(y=thresholds[metric]["upper"], line=dict(color='green', dash='dash'), name='상한선')
+                    fig.add_hline(y=thresholds[metric]["lower"], line=dict(color='green', dash='dash'), name='하한선')
 
                     # 이상치 표시
                     outliers = data[(data['y'] > thresholds[metric]["upper"]) | (data['y'] < thresholds[metric]["lower"])]
-                    ax.scatter(outliers['ds'], outliers['y'], color='red', label='이상치')
+                    fig.add_trace(go.Scatter(x=outliers['ds'], y=outliers['y'], mode='markers', name='이상치', marker=dict(color='red')))
             
-                ax.legend(prop=font_properties, loc='upper right') # 범례박스 고정
-                ax.set_title(f"{metric} 예측 그래프", fontproperties=font_properties)
-                plt.xticks(fontsize=14)  # x축 눈금 크기 설정
-                plt.yticks(fontsize=14)  # y축 눈금 크기 설정
-                plt.subplots_adjust(hspace=0.8)  # 그래프 사이에 간격 추가
-                st.pyplot(fig)
+                fig.update_layout(title=f"{metric} 예측 그래프", xaxis_title='날짜', yaxis_title=metric)
+                st.plotly_chart(fig)
+
                 # 그래프 사이에 간격 추가
                 st.markdown("<div style='margin-top: 50px;'></div>", unsafe_allow_html=True)
 
-                # # 모델 성능 평가
+                # # 모델 성능 평가(각 컬럼별로 평가가 나옴)
                 # y_true = valid_data['y'].values
                 # y_pred = forecast.loc[forecast['ds'].isin(valid_data['ds']), 'yhat'].values
 
