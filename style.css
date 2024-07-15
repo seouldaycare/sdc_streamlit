@@ -1,0 +1,13 @@
+.title {
+    color: rgb(17, 69, 173);
+    font-size: 2em;
+}
+
+body {
+    margin: 0 15%;
+    padding: 0;
+}
+
+.stCodeBlock {
+    width: 100% !important;
+}
