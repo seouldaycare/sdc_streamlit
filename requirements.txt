@@ -1,0 +1,11 @@
+streamlit
+pandas
+prophet
+# matplotlib
+plotly
+streamlit-option-menu
+numpy<2.0
+chardet
+scikit-learn
+tensorflow-cpu
+protobuf==3.20.*
